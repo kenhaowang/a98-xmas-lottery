@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A98 聖誕抽禮物</title>
+    <title>A98 X'mas 盲抽大派對</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -42,6 +42,51 @@
         .gift-shadow {
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 -4px 0 0 rgba(0,0,0,0.1);
         }
+
+        /* 音樂播放器樣式 */
+        .music-player-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid #ffcc80;
+            width: 200px;
+            transition: all 0.3s ease;
+        }
+        /* 縮小時的樣式 */
+        .music-player-container.minimized {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border-radius: 50%;
+            overflow: hidden; /* 重要：隱藏超出範圍的 iframe */
+            cursor: pointer;
+        }
+        
+        /* 隱藏 iframe 但不移除 DOM */
+        .hidden-visually {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        .music-toggle {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -58,22 +103,20 @@
         const [perPair, setPerPair] = useState(2);    
         const [pairCount, setPairCount] = useState(5); 
         
+        // 音樂相關 State
+        const [youtubeUrl, setYoutubeUrl] = useState("https://www.youtube.com/watch?v=FjIu002e2IE"); 
+        const [isPlaying, setIsPlaying] = useState(false);
+        const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
+        
         const [candidates, setCandidates] = useState([]); 
         const [history, setHistory] = useState([]);       
         const [currentDraw, setCurrentDraw] = useState([]); 
 
-        // 自動捲動參考 (保留但不使用 scrollIntoView)
         const resultsEndRef = useRef(null);
 
         // --- 計算邏輯 ---
-        
-        // 判斷是否無法再湊出完整一組 (Game Over 條件)
         const isGameOver = candidates.length < perPair;
-
-        // 1. 計算剩餘可以組成的完整組數
         const validGroupsRemaining = Math.floor(candidates.length / perPair);
-        
-        // 2. 計算剩餘還需要按幾次按鈕 (抽取次數)
         const drawsRemaining = Math.ceil(validGroupsRemaining / pairCount);
 
         // --- 決定狀態顯示文字 ---
@@ -84,7 +127,6 @@
             statusText = "抽完囉";
             statusClass = "text-green-600 font-bold";
         } else {
-            // Phase 2
             if (isGameOver) {
                 statusText = "抽完囉";
                 statusClass = "text-green-600 font-bold";
@@ -100,6 +142,13 @@
             }
         }
 
+        // --- Helper: 解析 YouTube ID ---
+        const getYoutubeId = (url) => {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        };
+
         // --- Logic ---
 
         const handleConfirmSetup = () => {
@@ -111,6 +160,7 @@
 
             setCandidates(list);
             setPhase(2);
+            setIsPlaying(true); 
         };
 
         const handleDraw = () => {
@@ -147,6 +197,7 @@
                 setHistory([]);
                 setCurrentDraw([]);
                 setCandidates([]);
+                setIsPlaying(false);
             }
         };
 
@@ -155,6 +206,34 @@
         return (
             <div className="flex flex-col h-screen bg-[#fdfbf7]">
                 
+                {/* 音樂播放器 (Phase 2 & 3 顯示) - 修正邏輯：即使縮小也保留 iframe */}
+                {phase >= 2 && isPlaying && (
+                    <div className={`music-player-container ${isPlayerMinimized ? 'minimized' : ''}`}>
+                        
+                        {/* 1. 播放器本體 (縮小時隱藏但不移除) */}
+                        <div style={{ display: isPlayerMinimized ? 'none' : 'block' }}>
+                            <div className="flex justify-between items-center text-xs text-gray-500 px-1 mb-1">
+                                <span>背景音樂</span>
+                                <button onClick={() => setIsPlayerMinimized(true)} className="hover:text-red-500 font-bold">─</button>
+                            </div>
+                            <iframe 
+                                width="100%" 
+                                height="100" 
+                                src={`https://www.youtube.com/embed/${getYoutubeId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeId(youtubeUrl)}`} 
+                                title="YouTube music" 
+                                frameBorder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+
+                        {/* 2. 縮小後的按鈕 (點擊還原) */}
+                        <div style={{ display: isPlayerMinimized ? 'flex' : 'none' }} className="music-toggle" onClick={() => setIsPlayerMinimized(false)}>
+                            🎵
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-orange-100 p-4 flex justify-between items-center z-10 shrink-0 h-[72px]">
                     <h1 className="text-2xl font-bold text-[#d32f2f] tracking-wide flex items-center gap-2 select-none">
@@ -182,6 +261,7 @@
                     {phase === 1 && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#fdfbf7] bg-pattern">
                             <div className="bg-white p-8 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-orange-100 max-w-5xl w-full flex flex-col gap-8">
+                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <div className="flex flex-col h-full">
                                         <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center">
@@ -189,54 +269,67 @@
                                             <span className="text-sm font-normal text-gray-400 ml-2">(Excel 複製貼上)</span>
                                         </label>
                                         <textarea 
-                                            className="flex-1 p-4 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#d32f2f] focus:border-transparent focus:outline-none resize-none bg-[#fffcf9] text-gray-700 text-base shadow-inner transition"
+                                            className="flex-1 p-4 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#d32f2f] focus:border-transparent focus:outline-none resize-none bg-[#fffcf9] text-gray-700 text-base shadow-inner transition h-full min-h-[450px]"
                                             placeholder="王小明&#10;李大華&#10;張三..."
                                             value={inputText}
                                             onChange={(e) => setInputText(e.target.value)}
-                                            style={{ minHeight: '320px' }}
                                         ></textarea>
                                     </div>
 
-                                    <div className="flex flex-col justify-center space-y-8 bg-[#faf7f2] p-8 rounded-xl border border-orange-100 relative overflow-hidden">
+                                    <div className="flex flex-col justify-center space-y-6 bg-[#faf7f2] p-8 rounded-xl border border-orange-100 relative overflow-hidden h-full">
                                         <div className="absolute -top-10 -right-10 text-9xl opacity-5 select-none pointer-events-none">🎅🏿</div>
                                         
-                                        <h3 className="font-bold text-[#8d6e63] text-sm uppercase tracking-wider border-b border-orange-200 pb-2 mb-2">抽籤參數設定</h3>
+                                        <h3 className="font-bold text-[#8d6e63] text-sm uppercase tracking-wider border-b border-orange-200 pb-2 mb-2">參數與音樂設定</h3>
+                                        
                                         <div>
-                                            <label className="block font-bold text-[#5d4037] mb-3 text-xl">每組幾人？</label>
+                                            <label className="block font-bold text-[#5d4037] mb-2 text-xl">每組幾人？</label>
                                             <div className="relative group">
                                                 <input 
                                                     type="number" min="1" max="10"
                                                     value={perPair}
                                                     onChange={(e) => setPerPair(parseInt(e.target.value))}
-                                                    className="w-full p-4 border-2 border-orange-200 rounded-xl text-2xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
+                                                    className="w-full p-3 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
                                                 />
                                                 <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">人</span>
                                             </div>
-                                            <p className="text-[#d32f2f] text-sm mt-2 font-medium opacity-80">* 上限 10 人</p>
                                         </div>
+                                        
                                         <div>
-                                            <label className="block font-bold text-[#5d4037] mb-3 text-xl">每次抽幾組？</label>
+                                            <label className="block font-bold text-[#5d4037] mb-2 text-xl">每次抽幾組？</label>
                                             <div className="relative group">
                                                 <input 
                                                     type="number" min="1" max="12"
                                                     value={pairCount}
                                                     onChange={(e) => setPairCount(parseInt(e.target.value))}
-                                                    className="w-full p-4 border-2 border-orange-200 rounded-xl text-2xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
+                                                    className="w-full p-3 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
                                                 />
                                                 <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">組</span>
                                             </div>
-                                            <p className="text-[#d32f2f] text-sm mt-2 font-medium opacity-80">* 上限 12 組</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block font-bold text-[#5d4037] mb-2 text-lg flex items-center gap-2">
+                                                🎵 背景音樂 (YouTube 連結)
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                value={youtubeUrl}
+                                                onChange={(e) => setYoutubeUrl(e.target.value)}
+                                                placeholder="貼上 YouTube 網址..."
+                                                className="w-full p-3 border border-orange-200 rounded-xl text-sm focus:border-[#d32f2f] outline-none shadow-inner bg-white text-gray-600"
+                                            />
+                                            <p className="text-xs text-gray-400 mt-1">按下開始後自動播放 (左下角可調整)</p>
+                                        </div>
+
+                                        <div className="pt-2">
+                                            <button 
+                                                onClick={handleConfirmSetup}
+                                                className="w-full bg-[#1b5e20] hover:bg-[#144718] text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.01] text-2xl tracking-widest flex items-center justify-center gap-3 active:scale-95"
+                                            >
+                                                <span>🦌</span> 確認設定並開始
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="pt-4 border-t border-orange-100">
-                                    <button 
-                                        onClick={handleConfirmSetup}
-                                        className="w-full bg-[#1b5e20] hover:bg-[#144718] text-white font-bold py-5 rounded-xl shadow-lg transform transition hover:scale-[1.01] text-2xl tracking-widest flex items-center justify-center gap-3 active:scale-95"
-                                    >
-                                        <span>🦌</span> 確認設定並開始
-                                    </button>
                                 </div>
                             </div>
                         </div>

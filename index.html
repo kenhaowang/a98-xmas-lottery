@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A98 聖誕抽禮物</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* 強制設定微軟正黑體 */
+        body { 
+            font-family: "Microsoft JhengHei", "Heiti TC", "sans-serif"; 
+            background-color: #fdfbf7; 
+            color: #4a4a4a;
+            overflow: hidden; 
+        }
+        .card-enter { animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.5) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        
+        /* 讓階段三可以垂直捲動 */
+        .scroll-container {
+            overflow-y: auto;
+            height: calc(100vh - 72px); 
+        }
+        
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #fdfbf7; }
+        ::-webkit-scrollbar-thumb { background: #d6ccc2; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c2b5a5; }
+
+        /* 背景圖案 */
+        .bg-pattern {
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* 禮物盒陰影特效 */
+        .gift-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 -4px 0 0 rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function App() {
+        // --- State ---
+        const [phase, setPhase] = useState(1); 
+        const [inputText, setInputText] = useState("");
+        const [perPair, setPerPair] = useState(2);    
+        const [pairCount, setPairCount] = useState(1); 
+        
+        const [candidates, setCandidates] = useState([]); 
+        const [history, setHistory] = useState([]);       
+        const [currentDraw, setCurrentDraw] = useState([]); 
+
+        // 自動捲動參考 (保留但不使用 scrollIntoView)
+        const resultsEndRef = useRef(null);
+
+        // --- 計算邏輯 ---
+        
+        // 判斷是否無法再湊出完整一組 (Game Over 條件)
+        const isGameOver = candidates.length < perPair;
+
+        // 1. 計算剩餘可以組成的完整組數
+        const validGroupsRemaining = Math.floor(candidates.length / perPair);
+        
+        // 2. 計算剩餘還需要按幾次按鈕 (抽取次數)
+        const drawsRemaining = Math.ceil(validGroupsRemaining / pairCount);
+
+        // --- 決定狀態顯示文字 ---
+        let statusText = "正在抽";
+        let statusClass = "text-orange-600";
+
+        if (phase === 3) {
+            statusText = "抽完囉";
+            statusClass = "text-green-600 font-bold";
+        } else {
+            // Phase 2
+            if (isGameOver) {
+                statusText = "抽完囉";
+                statusClass = "text-green-600 font-bold";
+            } else if (drawsRemaining === 1) {
+                statusText = "最後一抽囉";
+                statusClass = "text-red-600 font-bold animate-pulse"; 
+            } else if (drawsRemaining > 1 && drawsRemaining <= 3) {
+                statusText = "快抽完囉";
+                statusClass = "text-orange-600 font-bold"; 
+            } else if (drawsRemaining === 0 && !isGameOver) {
+                 statusText = "抽完囉";
+                 statusClass = "text-green-600 font-bold";
+            }
+        }
+
+        // --- Logic ---
+
+        const handleConfirmSetup = () => {
+            const list = inputText.split('\n').map(s => s.trim()).filter(s => s !== "");
+            if (list.length === 0) { alert("名單不能為空！"); return; }
+            if (perPair > 10) { alert("每組人數上限為 10 人"); return; }
+            if (pairCount > 12) { alert("每次抽取組數上限為 12 組"); return; }
+            if (perPair < 1 || pairCount < 1) { alert("數值必須大於 0"); return; }
+
+            setCandidates(list);
+            setPhase(2);
+        };
+
+        const handleDraw = () => {
+            if (isGameOver) {
+                setPhase(3);
+                return;
+            }
+
+            let pool = [...candidates];
+            let newBatch = [];
+
+            for (let i = 0; i < pairCount; i++) {
+                if (pool.length < perPair) break; 
+                
+                let group = [];
+                for (let j = 0; j < perPair; j++) {
+                    const randomIndex = Math.floor(Math.random() * pool.length);
+                    group.push(pool[randomIndex]);
+                    pool.splice(randomIndex, 1);
+                }
+                newBatch.push(group);
+            }
+
+            if (newBatch.length > 0) {
+                setCurrentDraw(newBatch);
+                setHistory(prev => [...prev, ...newBatch]);
+                setCandidates(pool);
+            }
+        };
+
+        const handleReset = () => {
+            if(confirm("確定要重置所有資料回到設定頁面嗎？")) {
+                setPhase(1);
+                setHistory([]);
+                setCurrentDraw([]);
+                setCandidates([]);
+            }
+        };
+
+        // --- Render ---
+
+        return (
+            <div className="flex flex-col h-screen bg-[#fdfbf7]">
+                
+                {/* Header */}
+                <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-orange-100 p-4 flex justify-between items-center z-10 shrink-0 h-[72px]">
+                    <h1 className="text-2xl font-bold text-[#d32f2f] tracking-wide flex items-center gap-2 select-none">
+                        🎄 A98 聖誕抽禮物 🎁
+                    </h1>
+                    <div className="flex items-center gap-4">
+                        {phase >= 2 && (
+                            <div className="text-sm font-medium text-[#5d4037] hidden md:block bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                                狀態: <span className={statusClass}>{statusText}</span> | 
+                                總組數: {history.length + (candidates.length > 0 && phase === 3 ? 1 : 0)}
+                            </div>
+                        )}
+                        {phase > 1 && (
+                            <button onClick={handleReset} className="text-[#8d6e63] hover:text-[#d32f2f] text-sm font-medium transition px-2">
+                                重置
+                            </button>
+                        )}
+                    </div>
+                </header>
+
+                {/* Content Area */}
+                <div className="flex-1 relative overflow-hidden">
+                    
+                    {/* Phase 1: Setup */}
+                    {phase === 1 && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#fdfbf7] bg-pattern">
+                            <div className="bg-white p-8 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-orange-100 max-w-5xl w-full flex flex-col gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    <div className="flex flex-col h-full">
+                                        <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center">
+                                            貼上候選人名單 🎅
+                                            <span className="text-sm font-normal text-gray-400 ml-2">(Excel 複製貼上)</span>
+                                        </label>
+                                        <textarea 
+                                            className="flex-1 p-4 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#d32f2f] focus:border-transparent focus:outline-none resize-none bg-[#fffcf9] text-gray-700 text-base shadow-inner transition"
+                                            placeholder="王小明&#10;李大華&#10;張三..."
+                                            value={inputText}
+                                            onChange={(e) => setInputText(e.target.value)}
+                                            style={{ minHeight: '320px' }}
+                                        ></textarea>
+                                    </div>
+
+                                    <div className="flex flex-col justify-center space-y-8 bg-[#faf7f2] p-8 rounded-xl border border-orange-100 relative overflow-hidden">
+                                        <div className="absolute -top-10 -right-10 text-9xl opacity-5 select-none pointer-events-none">🎅🏿</div>
+                                        
+                                        <h3 className="font-bold text-[#8d6e63] text-sm uppercase tracking-wider border-b border-orange-200 pb-2 mb-2">抽籤參數設定</h3>
+                                        <div>
+                                            <label className="block font-bold text-[#5d4037] mb-3 text-xl">每組幾人？</label>
+                                            <div className="relative group">
+                                                <input 
+                                                    type="number" min="1" max="10"
+                                                    value={perPair}
+                                                    onChange={(e) => setPerPair(parseInt(e.target.value))}
+                                                    className="w-full p-4 border-2 border-orange-200 rounded-xl text-2xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
+                                                />
+                                                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">人</span>
+                                            </div>
+                                            <p className="text-[#d32f2f] text-sm mt-2 font-medium opacity-80">* 上限 10 人</p>
+                                        </div>
+                                        <div>
+                                            <label className="block font-bold text-[#5d4037] mb-3 text-xl">每次抽幾組？</label>
+                                            <div className="relative group">
+                                                <input 
+                                                    type="number" min="1" max="12"
+                                                    value={pairCount}
+                                                    onChange={(e) => setPairCount(parseInt(e.target.value))}
+                                                    className="w-full p-4 border-2 border-orange-200 rounded-xl text-2xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
+                                                />
+                                                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">組</span>
+                                            </div>
+                                            <p className="text-[#d32f2f] text-sm mt-2 font-medium opacity-80">* 上限 12 組</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-orange-100">
+                                    <button 
+                                        onClick={handleConfirmSetup}
+                                        className="w-full bg-[#1b5e20] hover:bg-[#144718] text-white font-bold py-5 rounded-xl shadow-lg transform transition hover:scale-[1.01] text-2xl tracking-widest flex items-center justify-center gap-3 active:scale-95"
+                                    >
+                                        <span>🦌</span> 確認設定並開始
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phase 2: Drawing Interface */}
+                    {phase === 2 && (
+                        <div className="flex h-full">
+                            {/* 左側 25% */}
+                            <div className="w-[25%] bg-[#fffcf9] border-r border-orange-100 flex flex-col h-full">
+                                <div className="p-4 bg-[#fdfbf7] border-b border-orange-100 shadow-sm">
+                                    <h2 className="font-bold text-[#5d4037] text-lg flex items-center">
+                                        📜 候選名單 
+                                        <span className="ml-2 bg-[#efebe9] text-[#5d4037] px-2 py-0.5 rounded-full text-sm font-bold">
+                                            {candidates.length}
+                                        </span>
+                                    </h2>
+                                </div>
+                                <div className="flex-1 p-4 overflow-y-auto content-start custom-scrollbar">
+                                    <div className="flex flex-wrap gap-2">
+                                        {candidates.length > 0 ? candidates.map((c, i) => (
+                                            <span key={i} className="bg-white text-[#795548] px-3 py-1.5 rounded-lg text-sm border border-orange-100 shadow-sm transition hover:shadow-md hover:border-orange-200">
+                                                {c}
+                                            </span>
+                                        )) : (
+                                            <div className="w-full text-center text-gray-400 mt-10 flex flex-col items-center">
+                                                <span className="text-4xl mb-2">🎁</span>
+                                                <span>名單已清空</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 中間 50% (抽籤舞台) */}
+                            <div className="w-[50%] bg-[#f5f0e6] flex flex-col relative h-full"> 
+                                
+                                {/* 1. 上方結果顯示區 (justify-start 靠上對齊) */}
+                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar scroll-smooth">
+                                    {isGameOver && (
+                                        <div className="text-center text-[#1b5e20] font-bold mb-6 animate-bounce bg-white/60 py-2 rounded-lg mx-auto max-w-md shadow-sm">
+                                            🎄 所有組合已抽取完畢，請點擊下方按鈕顯示最後抽籤結果！
+                                        </div>
+                                    )}
+                                    {currentDraw.length > 0 ? (
+                                        <div className="flex flex-col items-center min-h-full justify-start pb-4">
+                                            <div className="text-[#8d6e63] font-bold opacity-70 mb-4 flex items-center gap-2">
+                                                <span>🎅🏿</span> 本次結果 <span>🎅🏿</span>
+                                            </div>
+                                            
+                                            {/* 單列直排 (flex-col)，間距縮小 (gap-3) */}
+                                            <div className="flex flex-col gap-3 w-full items-center">
+                                                {currentDraw.map((group, idx) => (
+                                                    /* 禮物盒樣式設計 (紅色大禮盒) */
+                                                    <div key={idx} className="card-enter relative w-full max-w-md bg-[#d32f2f] rounded-xl gift-shadow text-center overflow-hidden transform hover:scale-[1.01] transition duration-300 border-2 border-[#b71c1c]">
+                                                        
+                                                        {/* 金色十字緞帶 */}
+                                                        <div className="absolute top-0 bottom-0 left-1/2 w-8 bg-[#ffca28] -translate-x-1/2 shadow-sm z-0"></div>
+                                                        <div className="absolute left-0 right-0 top-1/2 h-8 bg-[#ffca28] -translate-y-1/2 shadow-sm z-0"></div>
+                                                        
+                                                        {/* 大蝴蝶結 */}
+                                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-5xl drop-shadow-md z-20">🎀</div>
+
+                                                        {/* 內容卡片 (放在禮物盒中間) - 純白背景 */}
+                                                        <div className="relative z-10 m-4 mt-8 bg-white p-4 rounded-lg shadow-inner border border-[#ffca28]">
+                                                            <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">
+                                                                Group {history.length - currentDraw.length + idx + 1}
+                                                            </div>
+                                                            <div className="text-2xl font-black text-[#b71c1c] leading-tight break-words">
+                                                                {group.join(" , ")}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {/* 自動捲動的錨點 */}
+                                            <div ref={resultsEndRef} />
+                                        </div>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-[#d7ccc8] font-bold text-xl select-none">
+                                            <span className="text-6xl mb-4 opacity-50">🦌</span>
+                                            準備好請按下方按鈕
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2. 下方控制區 (固定在底部，縮小後的按鈕) */}
+                                <div className="p-4 flex justify-center shrink-0 border-t border-orange-100 bg-white/30 backdrop-blur-sm z-20">
+                                    <button 
+                                        onClick={handleDraw}
+                                        className={`
+                                            text-white text-xl font-bold py-3 px-12 rounded-full shadow-lg transition transform border-4 border-white/50 w-auto
+                                            ${isGameOver 
+                                                ? 'bg-[#1b5e20] hover:bg-[#2e7d32] ring-4 ring-green-100'
+                                                : 'bg-[#d32f2f] hover:bg-[#b71c1c] active:scale-95 ring-4 ring-red-100'}
+                                        `}
+                                    >
+                                        {isGameOver ? '🏁 顯示最後抽籤結果' : '🤞 抽籤囉！'}
+                                    </button>
+                                </div>
+
+                            </div>
+
+                            {/* 右側 25% (歷史紀錄 - 白色小禮盒) */}
+                            <div className="w-[25%] bg-[#fffcf9] border-l border-orange-100 flex flex-col h-full">
+                                <div className="p-4 bg-[#fdfbf7] border-b border-orange-100 shadow-sm">
+                                    <h2 className="font-bold text-[#5d4037] text-lg flex items-center justify-between">
+                                        🕰️ 抽籤紀錄
+                                        <span className="bg-[#e8f5e9] text-[#2e7d32] px-2 py-0.5 rounded-full text-sm font-bold">
+                                            共 {history.length} 組
+                                        </span>
+                                    </h2>
+                                </div>
+                                <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-4">
+                                        {[...history].reverse().map((group, idx) => (
+                                            /* 歷史紀錄：白色禮物盒樣式 */
+                                            <div key={idx} className="relative bg-white pt-8 pb-4 px-3 rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
+                                                {/* 紅色直緞帶 */}
+                                                <div className="absolute top-0 bottom-0 left-1/2 w-4 bg-red-100 -translate-x-1/2"></div>
+                                                {/* 蝴蝶結 */}
+                                                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-2xl drop-shadow-sm">🎀</div>
+                                                
+                                                <div className="relative z-10 text-center">
+                                                    <div className="inline-block bg-[#fbe9e7] text-[#bf360c] text-[10px] px-2 py-0.5 rounded-full font-bold mb-1">
+                                                        第 {history.length - idx} 組
+                                                    </div>
+                                                    <div className="font-bold text-[#5d4037] text-lg break-words leading-tight bg-white/80 backdrop-blur-[1px] rounded px-1">
+                                                        {group.join(" , ")}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {history.length === 0 && (
+                                            <div className="text-center text-gray-400 mt-10 italic">尚未開始</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phase 3: Final Summary */}
+                    {phase === 3 && (
+                        <div className="bg-[#fdfbf7] scroll-container p-8">
+                            <div className="max-w-6xl mx-auto">
+                                <div className="text-center mb-12">
+                                    <div className="inline-block p-4 rounded-full bg-red-50 mb-4 animate-bounce">
+                                        <span className="text-4xl">🎅🏿</span>
+                                    </div>
+                                    <h2 className="text-4xl font-bold text-[#d32f2f] mb-4 drop-shadow-sm">🏆 A98 聖誕抽禮物最終結果</h2>
+                                    <p className="text-[#795548] text-lg">
+                                        總共 <span className="font-bold">{history.length + (candidates.length > 0 ? 1 : 0)}</span> 組，
+                                        共 <span className="font-bold">{history.flat().length + candidates.length}</span> 人參與
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                                    
+                                    {/* 1. 未滿組 (特別樣式 - 襪子) */}
+                                    {candidates.length > 0 && (
+                                        <div className="bg-[#fff3e0] p-6 rounded-2xl shadow-md border border-orange-200 border-t-4 border-t-orange-400 break-inside-avoid relative overflow-hidden">
+                                            <div className="absolute top-2 right-2 text-xl opacity-20">🧦</div>
+                                            <div className="flex justify-between items-center mb-3">
+                                                <span className="text-orange-800 text-xs uppercase font-bold tracking-wider">未滿組</span>
+                                                <span className="bg-white/50 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">{candidates.length} 人</span>
+                                            </div>
+                                            <div className="text-xl font-bold text-orange-900 leading-relaxed">
+                                                {candidates.join(" , ")}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 2. 正常組別 - 白色禮物盒樣式 */}
+                                    {history.map((group, idx) => (
+                                        <div key={idx} className="relative bg-white pt-10 pb-6 px-4 rounded-xl shadow-md border border-gray-100 overflow-hidden hover:scale-[1.02] transition duration-200">
+                                            {/* 綠色直緞帶 */}
+                                            <div className="absolute top-0 bottom-0 left-1/2 w-6 bg-green-50 -translate-x-1/2"></div>
+                                            {/* 蝴蝶結 */}
+                                            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-3xl drop-shadow-sm z-10">🎀</div>
+                                            
+                                            <div className="relative z-10 text-center">
+                                                <div className="text-xs font-bold text-green-700/50 uppercase mb-2 tracking-wider">Group {idx + 1}</div>
+                                                <div className="text-xl font-bold text-[#3e2723] leading-relaxed break-words bg-white/60 rounded">
+                                                    {group.join(" , ")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+</script>
+
+</body>
+</html>

@@ -106,7 +106,8 @@
         const [pairCount, setPairCount] = useState(5); 
         
         // 音樂相關 State
-        const [youtubeUrl, setYoutubeUrl] = useState("https://www.youtube.com/watch?v=FjIu002e2IE"); 
+        // ✅ 修改：預設為空字串
+        const [youtubeUrl, setYoutubeUrl] = useState(""); 
         const [isPlaying, setIsPlaying] = useState(false);
         const [isPlayerMinimized, setIsPlayerMinimized] = useState(true);
         
@@ -146,6 +147,7 @@
 
         // --- Helper: 解析 YouTube ID ---
         const getYoutubeId = (url) => {
+            if (!url) return null;
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
@@ -162,7 +164,11 @@
 
             setCandidates(list);
             setPhase(2);
-            setIsPlaying(true); 
+            
+            // ✅ 修改：只有當有填寫 YouTube 連結時才播放
+            if (youtubeUrl.trim() !== "") {
+                setIsPlaying(true);
+            }
         };
 
         const handleDraw = () => {
@@ -209,7 +215,8 @@
             <div className="flex flex-col h-screen bg-[#fdfbf7]">
                 
                 {/* 音樂播放器 (Phase 2 & 3 顯示) */}
-                {phase >= 2 && isPlaying && (
+                {/* ✅ 修改：增加條件 youtubeUrl 必須有值才顯示 */}
+                {phase >= 2 && isPlaying && youtubeUrl.trim() !== "" && (
                     <div className={`music-player-container ${isPlayerMinimized ? 'minimized' : ''}`}>
                         <div style={{ display: isPlayerMinimized ? 'none' : 'block' }}>
                             <div className="flex justify-between items-center text-xs text-gray-500 px-1 mb-1">
@@ -258,7 +265,6 @@
                     {/* Phase 1: Setup */}
                     {phase === 1 && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#fdfbf7] bg-pattern">
-                            {/* ✅ 修改這裡：將 h-[90vh] 改為 h-[80vh]，讓整體高度縮短一點 */}
                             <div className="bg-white p-8 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-orange-100 max-w-5xl w-full flex flex-col h-[80vh]">
                                 
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10 min-h-0">
@@ -327,7 +333,9 @@
                                                         placeholder="貼上 YouTube 網址..."
                                                         className="w-full p-3 border border-orange-200 rounded-xl text-sm focus:border-[#d32f2f] outline-none shadow-inner bg-white text-gray-600"
                                                     />
-                                                    <p className="text-xs text-gray-400 mt-1">按下開始後自動播放 (預設縮小在左下角)</p>
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        {youtubeUrl ? "按下開始後自動播放 (預設縮小在左下角)" : "若空白則不播放背景音樂"}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>

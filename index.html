@@ -76,6 +76,7 @@
         }
         .music-icon-spin {
             animation: spin-slow 4s linear infinite;
+            display: inline-block; /* 確保旋轉中心正確 */
         }
         .music-toggle {
             font-size: 24px;
@@ -260,8 +261,9 @@
                                 title="YouTube music" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
                             ></iframe>
                         </div>
+                        {/* ✅ 修改重點: 將原本的 🎵 改為 🎅 */}
                         <div style={{ display: isPlayerMinimized ? 'flex' : 'none' }} className="music-toggle" onClick={() => setIsPlayerMinimized(false)}>
-                            <span className="music-icon-spin">🎵</span>
+                            <span className="music-icon-spin">🎅</span>
                         </div>
                     </div>
                 )}
@@ -383,7 +385,6 @@
                                                         </div>
 
                                                         <div className="relative z-10 w-[85%] bg-white p-3 rounded-lg shadow-lg rotate-1 transform transition hover:rotate-0 text-center">
-                                                            {/* ✅ 修改重點: 使用 .map() 讓名字垂直排列，並加上 gap-1 控制間距 */}
                                                             <div className="text-2xl md:text-3xl font-black text-[#b71c1c] leading-tight break-words flex flex-col gap-1">
                                                                 {group.map((name, nIdx) => (
                                                                     <div key={nIdx}>{name}</div>

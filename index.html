@@ -365,13 +365,11 @@
                                                 <span>🎅🏿</span> 本次結果 <span>🎅🏿</span>
                                             </div>
                                             
-                                            {/* ✅ 修改重點: 將 gap-4 改為 gap-6，增加間距 */}
                                             <div className="flex flex-wrap justify-center content-start gap-6 w-full">
                                                 {currentDraw.map((group, idx) => (
                                                     <div 
                                                         key={idx} 
                                                         style={{ background: currentColors[idx] }}
-                                                        // ✅ 修改重點: 將 max-w-[220px] 改為 max-w-[260px], min-w-[180px] 改為 min-w-[200px] 增加尺寸
                                                         className="card-enter relative w-[30%] max-w-[260px] min-w-[200px] aspect-square rounded-xl gift-shadow flex flex-col items-center justify-center overflow-hidden transform hover:scale-[1.02] transition duration-300"
                                                     >
                                                         <div className="absolute top-0 bottom-0 left-1/2 w-6 bg-white/20 -translate-x-1/2 shadow-sm z-0 backdrop-blur-[1px]"></div>
@@ -385,8 +383,11 @@
                                                         </div>
 
                                                         <div className="relative z-10 w-[85%] bg-white p-3 rounded-lg shadow-lg rotate-1 transform transition hover:rotate-0 text-center">
-                                                            <div className="text-lg md:text-xl font-black text-[#b71c1c] leading-tight break-words">
-                                                                {group.join(" , ")}
+                                                            {/* ✅ 修改重點: 使用 .map() 讓名字垂直排列，並加上 gap-1 控制間距 */}
+                                                            <div className="text-2xl md:text-3xl font-black text-[#b71c1c] leading-tight break-words flex flex-col gap-1">
+                                                                {group.map((name, nIdx) => (
+                                                                    <div key={nIdx}>{name}</div>
+                                                                ))}
                                                             </div>
                                                         </div>
                                                     </div>

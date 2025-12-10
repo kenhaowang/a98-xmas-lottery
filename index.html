@@ -20,7 +20,7 @@
             color: #4a4a4a;
             overflow: hidden; 
         }
-        .card-enter { animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .card-enter { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes popIn { from { opacity: 0; transform: scale(0.5) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         
         /* 讓階段三可以垂直捲動 */
@@ -30,7 +30,7 @@
         }
         
         /* 自定義捲軸 */
-        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #fdfbf7; }
         ::-webkit-scrollbar-thumb { background: #d6ccc2; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #c2b5a5; }
@@ -43,7 +43,7 @@
 
         /* 禮物盒陰影特效 */
         .gift-shadow {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 -4px 0 0 rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2), 0 6px 10px rgba(0,0,0,0.1);
         }
 
         /* 音樂播放器樣式 */
@@ -60,7 +60,6 @@
             width: 200px;
             transition: all 0.3s ease;
         }
-        /* 縮小時的樣式 */
         .music-player-container.minimized {
             width: 50px;
             height: 50px;
@@ -71,8 +70,6 @@
             border: 2px solid #ffcc80;
             background: #fff8e1;
         }
-        
-        /* 旋轉動畫 (音樂播放時) */
         @keyframes spin-slow {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -80,7 +77,6 @@
         .music-icon-spin {
             animation: spin-slow 4s linear infinite;
         }
-
         .music-toggle {
             font-size: 24px;
             display: flex;
@@ -98,6 +94,34 @@
 <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    // --- 🎅 定義禮物顏色池 ---
+    const christmasPalette = [
+      "linear-gradient(135deg, #D42426, #A01214)", // 聖誕紅
+      "linear-gradient(135deg, #EF476F, #D11D46)", // 亮粉紅
+      "linear-gradient(135deg, #B91C1C, #7F1D1D)", // 深紅
+      "linear-gradient(135deg, #2F5233, #1A301D)", // 深綠
+      "linear-gradient(135deg, #5B8C5A, #3A5F39)", // 灰綠
+      "linear-gradient(135deg, #136F63, #09423B)", // 孔雀綠
+      "linear-gradient(135deg, #15803d, #14532d)", // 草綠
+      "linear-gradient(135deg, #6F4E37, #483122)", // 咖啡
+      "linear-gradient(135deg, #C19A6B, #8B6B43)", // 卡其
+      "linear-gradient(135deg, #A1887F, #5D4037)", // 灰褐
+      "linear-gradient(135deg, #B08968, #7F5539)", // 焦糖
+      "linear-gradient(135deg, #D4A373, #9C6644)"  // 暖棕
+    ];
+
+    // 洗牌函數
+    const shuffleArray = (array) => {
+        let currentIndex = array.length, randomIndex;
+        while (currentIndex != 0) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+            [array[currentIndex], array[randomIndex]] = [
+                array[randomIndex], array[currentIndex]];
+        }
+        return array;
+    };
+
     function App() {
         // --- State ---
         const [phase, setPhase] = useState(1); 
@@ -106,14 +130,17 @@
         const [pairCount, setPairCount] = useState(5); 
         
         // 音樂相關 State
-        // ✅ 修改：預設為空字串
         const [youtubeUrl, setYoutubeUrl] = useState(""); 
         const [isPlaying, setIsPlaying] = useState(false);
         const [isPlayerMinimized, setIsPlayerMinimized] = useState(true);
         
         const [candidates, setCandidates] = useState([]); 
-        const [history, setHistory] = useState([]);       
+        const [history, setHistory] = useState([]);        
         const [currentDraw, setCurrentDraw] = useState([]); 
+        
+        // ✨ 顏色管理
+        const [colorDeck, setColorDeck] = useState([]); 
+        const [currentColors, setCurrentColors] = useState([]);
 
         const resultsEndRef = useRef(null);
 
@@ -145,7 +172,6 @@
             }
         }
 
-        // --- Helper: 解析 YouTube ID ---
         const getYoutubeId = (url) => {
             if (!url) return null;
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -163,12 +189,9 @@
             if (perPair < 1 || pairCount < 1) { alert("數值必須大於 0"); return; }
 
             setCandidates(list);
+            setColorDeck(shuffleArray([...christmasPalette]));
             setPhase(2);
-            
-            // ✅ 修改：只有當有填寫 YouTube 連結時才播放
-            if (youtubeUrl.trim() !== "") {
-                setIsPlaying(true);
-            }
+            if (youtubeUrl.trim() !== "") setIsPlaying(true);
         };
 
         const handleDraw = () => {
@@ -179,6 +202,8 @@
 
             let pool = [...candidates];
             let newBatch = [];
+            let newBatchColors = [];
+            let deck = [...colorDeck];
 
             for (let i = 0; i < pairCount; i++) {
                 if (pool.length < perPair) break; 
@@ -190,12 +215,19 @@
                     pool.splice(randomIndex, 1);
                 }
                 newBatch.push(group);
+                
+                if (deck.length === 0) {
+                    deck = shuffleArray([...christmasPalette]);
+                }
+                newBatchColors.push(deck.pop());
             }
 
             if (newBatch.length > 0) {
                 setCurrentDraw(newBatch);
+                setCurrentColors(newBatchColors);
                 setHistory(prev => [...prev, ...newBatch]);
                 setCandidates(pool);
+                setColorDeck(deck);
             }
         };
 
@@ -204,6 +236,7 @@
                 setPhase(1);
                 setHistory([]);
                 setCurrentDraw([]);
+                setCurrentColors([]);
                 setCandidates([]);
                 setIsPlaying(false);
             }
@@ -214,8 +247,7 @@
         return (
             <div className="flex flex-col h-screen bg-[#fdfbf7]">
                 
-                {/* 音樂播放器 (Phase 2 & 3 顯示) */}
-                {/* ✅ 修改：增加條件 youtubeUrl 必須有值才顯示 */}
+                {/* 音樂播放器 */}
                 {phase >= 2 && isPlaying && youtubeUrl.trim() !== "" && (
                     <div className={`music-player-container ${isPlayerMinimized ? 'minimized' : ''}`}>
                         <div style={{ display: isPlayerMinimized ? 'none' : 'block' }}>
@@ -224,13 +256,8 @@
                                 <button onClick={() => setIsPlayerMinimized(true)} className="hover:text-red-500 font-bold">─</button>
                             </div>
                             <iframe 
-                                width="100%" 
-                                height="100" 
-                                src={`https://www.youtube.com/embed/${getYoutubeId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeId(youtubeUrl)}&enablejsapi=1`} 
-                                title="YouTube music" 
-                                frameBorder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowFullScreen
+                                width="100%" height="100" src={`https://www.youtube.com/embed/${getYoutubeId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeId(youtubeUrl)}&enablejsapi=1`} 
+                                title="YouTube music" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
                             ></iframe>
                         </div>
                         <div style={{ display: isPlayerMinimized ? 'flex' : 'none' }} className="music-toggle" onClick={() => setIsPlayerMinimized(false)}>
@@ -247,8 +274,7 @@
                     <div className="flex items-center gap-4">
                         {phase >= 2 && (
                             <div className="text-sm font-medium text-[#5d4037] hidden md:block bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-                                狀態: <span className={statusClass}>{statusText}</span> | 
-                                總組數: {history.length + (candidates.length > 0 && phase === 3 ? 1 : 0)}
+                                <span className={statusClass}>{statusText}</span>
                             </div>
                         )}
                         {phase > 1 && (
@@ -266,92 +292,42 @@
                     {phase === 1 && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-[#fdfbf7] bg-pattern">
                             <div className="bg-white p-8 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-orange-100 max-w-5xl w-full flex flex-col h-[80vh]">
-                                
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10 min-h-0">
-                                    
-                                    {/* 左欄：輸入名單 */}
                                     <div className="flex flex-col h-full">
-                                        <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center shrink-0">
-                                            貼上候選人名單 🎅
-                                            <span className="text-sm font-normal text-gray-400 ml-2">(Excel 複製貼上)</span>
-                                        </label>
-                                        <textarea 
-                                            className="flex-1 p-4 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#d32f2f] focus:border-transparent focus:outline-none resize-none bg-[#fffcf9] text-gray-700 text-base shadow-inner transition h-full"
-                                            placeholder="王小明&#10;李大華&#10;張三..."
-                                            value={inputText}
-                                            onChange={(e) => setInputText(e.target.value)}
-                                        ></textarea>
+                                        <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center shrink-0">貼上候選人名單 🎅 <span className="text-sm font-normal text-gray-400 ml-2">(Excel 複製貼上)</span></label>
+                                        <textarea className="flex-1 p-4 border border-orange-200 rounded-xl focus:ring-2 focus:ring-[#d32f2f] focus:border-transparent focus:outline-none resize-none bg-[#fffcf9] text-gray-700 text-base shadow-inner transition h-full" placeholder="王小明&#10;李大華&#10;張三..." value={inputText} onChange={(e) => setInputText(e.target.value)}></textarea>
                                     </div>
-
-                                    {/* 右欄：設定與音樂 (結構調整：標題在外面，讓下方色塊與左方輸入框頂部對齊) */}
                                     <div className="flex flex-col h-full">
-                                        
-                                        {/* 標題拉到外面，跟左邊的 Label 對齊 */}
-                                        <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center shrink-0">
-                                            參數與音樂設定 🎶
-                                        </label>
-
-                                        {/* 色塊區塊：這裡會跟左邊的 textarea 高度一致 (h-full) */}
+                                        <label className="font-bold text-[#5d4037] mb-3 text-lg flex items-center shrink-0">參數與音樂設定 🎶</label>
                                         <div className="flex-1 flex flex-col justify-center space-y-8 bg-[#faf7f2] p-8 rounded-xl border border-orange-100 relative overflow-hidden h-full shadow-inner">
                                             <div className="absolute -top-10 -right-10 text-9xl opacity-5 select-none pointer-events-none">🎅🏿</div>
-                                            
                                             <div className="space-y-6">
                                                 <div>
                                                     <label className="block font-bold text-[#5d4037] mb-2 text-xl">每組幾人？</label>
                                                     <div className="relative group">
-                                                        <input 
-                                                            type="number" min="1" max="10"
-                                                            value={perPair}
-                                                            onChange={(e) => setPerPair(parseInt(e.target.value))}
-                                                            className="w-full p-4 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
-                                                        />
+                                                        <input type="number" min="1" max="10" value={perPair} onChange={(e) => setPerPair(parseInt(e.target.value))} className="w-full p-4 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold" />
                                                         <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">人</span>
                                                     </div>
                                                 </div>
-                                                
                                                 <div>
                                                     <label className="block font-bold text-[#5d4037] mb-2 text-xl">每次抽幾組？</label>
                                                     <div className="relative group">
-                                                        <input 
-                                                            type="number" min="1" max="12"
-                                                            value={pairCount}
-                                                            onChange={(e) => setPairCount(parseInt(e.target.value))}
-                                                            className="w-full p-4 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold"
-                                                        />
+                                                        <input type="number" min="1" max="12" value={pairCount} onChange={(e) => setPairCount(parseInt(e.target.value))} className="w-full p-4 border-2 border-orange-200 rounded-xl text-xl text-center focus:border-[#d32f2f] outline-none shadow-sm transition bg-white text-[#d32f2f] font-bold" />
                                                         <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">組</span>
                                                     </div>
                                                 </div>
-
                                                 <div>
-                                                    <label className="block font-bold text-[#5d4037] mb-2 text-lg flex items-center gap-2">
-                                                        🎵 背景音樂 (YouTube 連結)
-                                                    </label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={youtubeUrl}
-                                                        onChange={(e) => setYoutubeUrl(e.target.value)}
-                                                        placeholder="貼上 YouTube 網址..."
-                                                        className="w-full p-3 border border-orange-200 rounded-xl text-sm focus:border-[#d32f2f] outline-none shadow-inner bg-white text-gray-600"
-                                                    />
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        {youtubeUrl ? "按下開始後自動播放 (預設縮小在左下角)" : "若空白則不播放背景音樂"}
-                                                    </p>
+                                                    <label className="block font-bold text-[#5d4037] mb-2 text-lg flex items-center gap-2">🎶 背景音樂 (YouTube 連結)</label>
+                                                    <input type="text" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="貼上 YouTube 網址..." className="w-full p-3 border border-orange-200 rounded-xl text-sm focus:border-[#d32f2f] outline-none shadow-inner bg-white text-gray-600" />
+                                                    <p className="text-xs text-gray-400 mt-1">{youtubeUrl ? "按下開始後自動播放" : "若空白則不播放背景音樂"}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* 下半部：全寬按鈕 (獨立區塊，移除上框線) */}
                                 <div className="pt-4 shrink-0">
-                                    <button 
-                                        onClick={handleConfirmSetup}
-                                        className="w-full bg-[#1b5e20] hover:bg-[#144718] text-white font-bold py-5 rounded-xl shadow-lg transform transition hover:scale-[1.01] text-2xl tracking-widest flex items-center justify-center gap-3 active:scale-95"
-                                    >
-                                        <span>🦌</span> 確認設定並開始
-                                    </button>
+                                    <button onClick={handleConfirmSetup} className="w-full bg-[#1b5e20] hover:bg-[#144718] text-white font-bold py-5 rounded-xl shadow-lg transform transition hover:scale-[1.01] text-2xl tracking-widest flex items-center justify-center gap-3 active:scale-95"><span>🦌</span> 確認設定並開始</button>
                                 </div>
-
                             </div>
                         </div>
                     )}
@@ -359,41 +335,29 @@
                     {/* Phase 2: Drawing Interface */}
                     {phase === 2 && (
                         <div className="flex h-full">
-                            {/* 左側 25% */}
-                            <div className="w-[25%] bg-[#fffcf9] border-r border-orange-100 flex flex-col h-full">
+                            {/* 左側 18% */}
+                            <div className="w-[18%] bg-[#fffcf9] border-r border-orange-100 flex flex-col h-full">
                                 <div className="p-4 bg-[#fdfbf7] border-b border-orange-100 shadow-sm">
                                     <h2 className="font-bold text-[#5d4037] text-lg flex items-center">
-                                        📜 候選名單 
-                                        <span className="ml-2 bg-[#efebe9] text-[#5d4037] px-2 py-0.5 rounded-full text-sm font-bold">
-                                            {candidates.length}
-                                        </span>
+                                        📜 候選 <span className="ml-1 bg-[#efebe9] text-[#5d4037] px-2 py-0.5 rounded-full text-sm font-bold">{candidates.length}</span>
                                     </h2>
                                 </div>
-                                <div className="flex-1 p-4 overflow-y-auto content-start custom-scrollbar">
+                                <div className="flex-1 p-3 overflow-y-auto content-start custom-scrollbar">
                                     <div className="flex flex-wrap gap-2">
                                         {candidates.length > 0 ? candidates.map((c, i) => (
-                                            <span key={i} className="bg-white text-[#795548] px-3 py-1.5 rounded-lg text-sm border border-orange-100 shadow-sm transition hover:shadow-md hover:border-orange-200">
-                                                {c}
-                                            </span>
+                                            <span key={i} className="bg-white text-[#795548] px-2 py-1 rounded text-xs border border-orange-100 shadow-sm transition hover:shadow-md hover:border-orange-200">{c}</span>
                                         )) : (
-                                            <div className="w-full text-center text-gray-400 mt-10 flex flex-col items-center">
-                                                <span className="text-4xl mb-2">🎁</span>
-                                                <span>名單已清空</span>
-                                            </div>
+                                            <div className="w-full text-center text-gray-400 mt-10 flex flex-col items-center text-xs"><span className="text-3xl mb-2">🎁</span><span>已清空</span></div>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 中間 50% (抽籤舞台) */}
-                            <div className="w-[50%] bg-[#f5f0e6] flex flex-col relative h-full"> 
-                                
-                                {/* 1. 上方結果顯示區 (justify-start 靠上對齊) */}
-                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar scroll-smooth">
+                            {/* 中間 64% (主舞台) */}
+                            <div className="w-[64%] bg-[#f5f0e6] flex flex-col relative h-full"> 
+                                <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar scroll-smooth">
                                     {isGameOver && (
-                                        <div className="text-center text-[#1b5e20] font-bold mb-6 animate-bounce bg-white/60 py-2 rounded-lg mx-auto max-w-md shadow-sm">
-                                            🎄 所有組合已抽取完畢，請點擊下方按鈕顯示最後抽籤結果！
-                                        </div>
+                                        <div className="text-center text-[#1b5e20] font-bold mb-6 animate-bounce bg-white/60 py-2 rounded-lg mx-auto max-w-md shadow-sm">🎄 所有組合已抽取完畢，請點擊下方按鈕顯示最後抽籤結果！</div>
                                     )}
                                     {currentDraw.length > 0 ? (
                                         <div className="flex flex-col items-center min-h-full justify-start pb-4">
@@ -401,92 +365,67 @@
                                                 <span>🎅🏿</span> 本次結果 <span>🎅🏿</span>
                                             </div>
                                             
-                                            {/* 單列直排 (flex-col)，間距縮小 (gap-3) */}
-                                            <div className="flex flex-col gap-3 w-full items-center">
+                                            {/* ✅ 修改重點: 將 gap-4 改為 gap-6，增加間距 */}
+                                            <div className="flex flex-wrap justify-center content-start gap-6 w-full">
                                                 {currentDraw.map((group, idx) => (
-                                                    /* 禮物盒樣式設計 (紅色大禮盒) */
-                                                    <div key={idx} className="card-enter relative w-full max-w-md bg-[#d32f2f] rounded-xl gift-shadow text-center overflow-hidden transform hover:scale-[1.01] transition duration-300 border-2 border-[#b71c1c]">
-                                                        
-                                                        {/* 金色十字緞帶 */}
-                                                        <div className="absolute top-0 bottom-0 left-1/2 w-8 bg-[#ffca28] -translate-x-1/2 shadow-sm z-0"></div>
-                                                        <div className="absolute left-0 right-0 top-1/2 h-8 bg-[#ffca28] -translate-y-1/2 shadow-sm z-0"></div>
-                                                        
-                                                        {/* 大蝴蝶結 */}
-                                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-5xl drop-shadow-md z-20">🎀</div>
+                                                    <div 
+                                                        key={idx} 
+                                                        style={{ background: currentColors[idx] }}
+                                                        // ✅ 修改重點: 將 max-w-[220px] 改為 max-w-[260px], min-w-[180px] 改為 min-w-[200px] 增加尺寸
+                                                        className="card-enter relative w-[30%] max-w-[260px] min-w-[200px] aspect-square rounded-xl gift-shadow flex flex-col items-center justify-center overflow-hidden transform hover:scale-[1.02] transition duration-300"
+                                                    >
+                                                        <div className="absolute top-0 bottom-0 left-1/2 w-6 bg-white/20 -translate-x-1/2 shadow-sm z-0 backdrop-blur-[1px]"></div>
+                                                        <div className="absolute left-0 right-0 top-1/2 h-6 bg-white/20 -translate-y-1/2 shadow-sm z-0 backdrop-blur-[1px]"></div>
+                                                        <div className="absolute top-2 left-1/2 -translate-x-1/2 text-3xl drop-shadow-md z-20">🎀</div>
 
-                                                        {/* 內容卡片 (放在禮物盒中間) - 純白背景 */}
-                                                        <div className="relative z-10 m-4 mt-8 bg-white p-4 rounded-lg shadow-inner border border-[#ffca28]">
-                                                            <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">
-                                                                Group {history.length - currentDraw.length + idx + 1}
-                                                            </div>
-                                                            <div className="text-2xl font-black text-[#b71c1c] leading-tight break-words">
+                                                        <div className="absolute top-3 right-3 z-30">
+                                                            <span className="bg-white/90 backdrop-blur text-gray-600 text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm border border-white/50">
+                                                                {history.length - currentDraw.length + idx + 1}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="relative z-10 w-[85%] bg-white p-3 rounded-lg shadow-lg rotate-1 transform transition hover:rotate-0 text-center">
+                                                            <div className="text-lg md:text-xl font-black text-[#b71c1c] leading-tight break-words">
                                                                 {group.join(" , ")}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
-                                            {/* 自動捲動的錨點 */}
                                             <div ref={resultsEndRef} />
                                         </div>
                                     ) : (
                                         <div className="h-full flex flex-col items-center justify-center text-[#d7ccc8] font-bold text-xl select-none">
-                                            <span className="text-6xl mb-4 opacity-50">🦌</span>
-                                            準備好請按下方按鈕
+                                            <span className="text-6xl mb-4 opacity-50">🦌</span>準備好請按下方按鈕
                                         </div>
                                     )}
                                 </div>
 
-                                {/* 2. 下方控制區 (固定在底部，縮小後的按鈕) */}
                                 <div className="p-4 flex justify-center shrink-0 border-t border-orange-100 bg-white/30 backdrop-blur-sm z-20">
-                                    <button 
-                                        onClick={handleDraw}
-                                        className={`
-                                            text-white text-xl font-bold py-3 px-12 rounded-full shadow-lg transition transform border-4 border-white/50 w-auto
-                                            ${isGameOver 
-                                                ? 'bg-[#1b5e20] hover:bg-[#2e7d32] ring-4 ring-green-100'
-                                                : 'bg-[#d32f2f] hover:bg-[#b71c1c] active:scale-95 ring-4 ring-red-100'}
-                                        `}
-                                    >
+                                    <button onClick={handleDraw} className={`text-white text-xl font-bold py-3 px-12 rounded-full shadow-lg transition transform border-4 border-white/50 w-auto ${isGameOver ? 'bg-[#1b5e20] hover:bg-[#2e7d32] ring-4 ring-green-100' : 'bg-[#d32f2f] hover:bg-[#b71c1c] active:scale-95 ring-4 ring-red-100'}`}>
                                         {isGameOver ? '🏁 顯示最後抽籤結果' : '🤞 抽籤囉！'}
                                     </button>
                                 </div>
-
                             </div>
 
-                            {/* 右側 25% (歷史紀錄 - 白色小禮盒) */}
-                            <div className="w-[25%] bg-[#fffcf9] border-l border-orange-100 flex flex-col h-full">
+                            {/* 右側 18% (紀錄區) */}
+                            <div className="w-[18%] bg-[#fffcf9] border-l border-orange-100 flex flex-col h-full">
                                 <div className="p-4 bg-[#fdfbf7] border-b border-orange-100 shadow-sm">
-                                    <h2 className="font-bold text-[#5d4037] text-lg flex items-center justify-between">
-                                        🕰️ 抽籤紀錄
-                                        <span className="bg-[#e8f5e9] text-[#2e7d32] px-2 py-0.5 rounded-full text-sm font-bold">
-                                            共 {history.length} 組
-                                        </span>
-                                    </h2>
+                                    <h2 className="font-bold text-[#5d4037] text-lg flex items-center justify-between">🕰️ 紀錄<span className="bg-[#e8f5e9] text-[#2e7d32] px-2 py-0.5 rounded-full text-sm font-bold">{history.length}</span></h2>
                                 </div>
-                                <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                                    <div className="space-y-4">
+                                <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-3">
                                         {[...history].reverse().map((group, idx) => (
-                                            /* 歷史紀錄：白色禮物盒樣式 */
-                                            <div key={idx} className="relative bg-white pt-8 pb-4 px-3 rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
-                                                {/* 紅色直緞帶 */}
-                                                <div className="absolute top-0 bottom-0 left-1/2 w-4 bg-red-100 -translate-x-1/2"></div>
-                                                {/* 蝴蝶結 */}
-                                                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-2xl drop-shadow-sm">🎀</div>
-                                                
+                                            <div key={idx} className="relative bg-white pt-6 pb-3 px-2 rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
+                                                <div className="absolute top-0 bottom-0 left-1/2 w-3 bg-red-100 -translate-x-1/2"></div>
+                                                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-xl drop-shadow-sm">🎀</div>
                                                 <div className="relative z-10 text-center">
-                                                    <div className="inline-block bg-[#fbe9e7] text-[#bf360c] text-[10px] px-2 py-0.5 rounded-full font-bold mb-1">
-                                                        第 {history.length - idx} 組
-                                                    </div>
-                                                    <div className="font-bold text-[#5d4037] text-lg break-words leading-tight bg-white/80 backdrop-blur-[1px] rounded px-1">
-                                                        {group.join(" , ")}
-                                                    </div>
+                                                    <div className="inline-block bg-[#fbe9e7] text-[#bf360c] text-[10px] px-1.5 py-0.5 rounded-full font-bold mb-1">第 {history.length - idx} 組</div>
+                                                    <div className="font-bold text-[#5d4037] text-base break-words leading-tight bg-white/80 backdrop-blur-[1px] rounded px-1">{group.join(" , ")}</div>
                                                 </div>
                                             </div>
                                         ))}
-                                        {history.length === 0 && (
-                                            <div className="text-center text-gray-400 mt-10 italic">尚未開始</div>
-                                        )}
+                                        {history.length === 0 && (<div className="text-center text-gray-400 mt-10 italic text-sm">尚未開始</div>)}
                                     </div>
                                 </div>
                             </div>
@@ -498,19 +437,11 @@
                         <div className="bg-[#fdfbf7] scroll-container p-8">
                             <div className="max-w-6xl mx-auto">
                                 <div className="text-center mb-12">
-                                    <div className="inline-block p-4 rounded-full bg-red-50 mb-4 animate-bounce">
-                                        <span className="text-4xl">🎅🏿</span>
-                                    </div>
+                                    <div className="inline-block p-4 rounded-full bg-red-50 mb-4 animate-bounce"><span className="text-4xl">🎅🏿</span></div>
                                     <h2 className="text-4xl font-bold text-[#d32f2f] mb-4 drop-shadow-sm">🏆 A98 X'mas 盲抽大派對最終結果</h2>
-                                    <p className="text-[#795548] text-lg">
-                                        總共 <span className="font-bold">{history.length + (candidates.length > 0 ? 1 : 0)}</span> 組，
-                                        共 <span className="font-bold">{history.flat().length + candidates.length}</span> 人參與
-                                    </p>
+                                    <p className="text-[#795548] text-lg">總共 <span className="font-bold">{history.length + (candidates.length > 0 ? 1 : 0)}</span> 組，共 <span className="font-bold">{history.flat().length + candidates.length}</span> 人參與</p>
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-                                    
-                                    {/* 1. 未滿組 (特別樣式 - 襪子) */}
                                     {candidates.length > 0 && (
                                         <div className="bg-[#fff3e0] p-6 rounded-2xl shadow-md border border-orange-200 border-t-4 border-t-orange-400 break-inside-avoid relative overflow-hidden">
                                             <div className="absolute top-2 right-2 text-xl opacity-20">🧦</div>
@@ -518,34 +449,23 @@
                                                 <span className="text-orange-800 text-xs uppercase font-bold tracking-wider">未滿組</span>
                                                 <span className="bg-white/50 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">{candidates.length} 人</span>
                                             </div>
-                                            <div className="text-xl font-bold text-orange-900 leading-relaxed">
-                                                {candidates.join(" , ")}
-                                            </div>
+                                            <div className="text-xl font-bold text-orange-900 leading-relaxed">{candidates.join(" , ")}</div>
                                         </div>
                                     )}
-
-                                    {/* 2. 正常組別 - 白色禮物盒樣式 */}
                                     {history.map((group, idx) => (
                                         <div key={idx} className="relative bg-white pt-10 pb-6 px-4 rounded-xl shadow-md border border-gray-100 overflow-hidden hover:scale-[1.02] transition duration-200">
-                                            {/* 綠色直緞帶 */}
                                             <div className="absolute top-0 bottom-0 left-1/2 w-6 bg-green-50 -translate-x-1/2"></div>
-                                            {/* 蝴蝶結 */}
                                             <div className="absolute top-1 left-1/2 -translate-x-1/2 text-3xl drop-shadow-sm z-10">🎀</div>
-                                            
                                             <div className="relative z-10 text-center">
                                                 <div className="text-xs font-bold text-green-700/50 uppercase mb-2 tracking-wider">Group {idx + 1}</div>
-                                                <div className="text-xl font-bold text-[#3e2723] leading-relaxed break-words bg-white/60 rounded">
-                                                    {group.join(" , ")}
-                                                </div>
+                                                <div className="text-xl font-bold text-[#3e2723] leading-relaxed break-words bg-white/60 rounded">{group.join(" , ")}</div>
                                             </div>
                                         </div>
                                     ))}
-
                                 </div>
                             </div>
                         </div>
                     )}
-
                 </div>
             </div>
         );
